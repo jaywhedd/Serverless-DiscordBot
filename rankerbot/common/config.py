@@ -5,13 +5,15 @@ Loads non-secret configuration (table name, region, category point values,
 etc.). Secrets (bot token, public key) are NOT stored here — see ssm.py.
 """
 
-# TODO: Populate accolade categories and their point values, e.g.
-# ACCOLADE_CATEGORIES = {
-#     "MVP": 10,
-#     "Most Kills": 5,
-#     "Team Player": 3,
-# }
-ACCOLADE_CATEGORIES = {}
+#These are the points allocated for accolades, for command /accolade must be typed the same(case sensitive)
+ACCOLADE_CATEGORIES = {
+     "MVP": 10,
+     "Play of the game": 8,
+     "Most Kills": 5,
+     "Best save of the day": 5,
+     "Team Player": 3,
+     "Best in moral support": 3,
+ }
 
 # TODO: Set DynamoDB table name (Credits)
 DYNAMODB_TABLE_NAME = ""
