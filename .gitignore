@@ -164,6 +164,11 @@ credentials.json
 *.pem
 .aws/
 
+# Lambda deployment packaging artifacts — build these locally, don't commit
+zip_check/
+package/
+*.zip
+
 # Spyder project settings
 .spyderproject
 .spyproject

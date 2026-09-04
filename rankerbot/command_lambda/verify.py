@@ -6,8 +6,13 @@ is internet-accessible (API Gateway is public by default), so every request
 must be proven to genuinely originate from Discord before we trust it,
 parse it, or let it touch DynamoDB/Discord's REST API.
 """
- 
- 
+
+import time
+
+from nacl.exceptions import BadSignatureError
+from nacl.signing import VerifyKey
+
+
 def verify_signature(raw_body: str, signature: str, timestamp: str, public_key: str) -> bool:
     """
     Verify the Ed25519 signature Discord attaches to every interaction request.
@@ -21,8 +26,18 @@ def verify_signature(raw_body: str, signature: str, timestamp: str, public_key: 
     Returns True if valid, False otherwise. Uses PyNaCl's VerifyKey; catches
     BadSignatureError internally rather than letting it raise.
     """
-    # TODO: implement using nacl.signing.VerifyKey
-    pass
+    if not raw_body or not signature or not timestamp or not public_key:
+        return False
+
+    try:
+        verify_key = VerifyKey(bytes.fromhex(public_key))
+        message = f"{timestamp}{raw_body}".encode("utf-8")
+        verify_key.verify(message, bytes.fromhex(signature))
+        return True
+    except (BadSignatureError, ValueError, TypeError):
+        # BadSignatureError: signature didn't match.
+        # ValueError/TypeError: malformed hex in signature/public_key.
+        return False
  
  
 def is_timestamp_fresh(timestamp: str, max_age_seconds: int) -> bool:
@@ -32,5 +47,9 @@ def is_timestamp_fresh(timestamp: str, max_age_seconds: int) -> bool:
     request). Runs as a second, separate check alongside verify_signature --
     both must pass.
     """
-    # TODO: implement
-    pass
+    try:
+        request_time = int(timestamp)
+    except (TypeError, ValueError):
+        return False
+
+    return abs(time.time() - request_time) <= max_age_seconds
