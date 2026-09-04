@@ -149,6 +149,7 @@ activemq-data/
 
 # Environments
 .env
+.env.*
 .envrc
 .venv
 env/
@@ -156,6 +157,12 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Local AWS/Discord credentials — never commit real tokens/keys
+secrets.json
+credentials.json
+*.pem
+.aws/
 
 # Spyder project settings
 .spyderproject

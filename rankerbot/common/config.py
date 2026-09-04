@@ -21,6 +21,12 @@ DYNAMODB_TABLE_NAME = ""
 # TODO: Set the GSI name used for guild_id / weekly_credits queries
 WEEKLY_CREDITS_GSI_NAME = ""
 
+# Second table: tracks which category has already been claimed each day,
+# so each accolade category can only be given to one person per day.
+# Partition key: date_category (e.g. "2026-09-04#MVP")
+# Attribute: awarded_to_user_id
+DAILY_ACCOLADES_TABLE_NAME = ""
+
 # TODO: Set number of top users to rank in the weekly finalize job
 TOP_N_RANKS = 3
 
