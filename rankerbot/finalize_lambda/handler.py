@@ -3,8 +3,7 @@ Finalize Lambda entrypoint.
 
 Triggered weekly by EventBridge (cron). Queries DynamoDB for the top N
 users by weekly_credits, assigns/updates Discord rank roles, posts the
-weekly announcement embed to #leaderboard, then resets weekly credits
-(rolling them into lifetime_credits).
+weekly announcement embed to #leaderboard, then resets weekly credits to zero.
 """
 
 

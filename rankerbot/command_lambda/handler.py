@@ -11,8 +11,18 @@ Reject anything that fails verification with a 401, and stop immediately.
 import json
 
 from rankerbot.command_lambda.verify import verify_signature, is_timestamp_fresh
+from rankerbot.command_lambda.command.accolade import handle_accolade
+from rankerbot.command_lambda.command.credits import handle_credits
+from rankerbot.command_lambda.command.leaderboard import handle_leaderboard
 from rankerbot.common.ssm import get_discord_public_key
 from rankerbot.common.config import MAX_REQUEST_AGE_SECONDS
+
+
+COMMAND_HANDLERS = {
+    "accolade": handle_accolade,
+    "credits": handle_credits,
+    "leaderboard": handle_leaderboard,
+}
 
 
 def _get_header(headers: dict, name: str) -> str:
@@ -24,6 +34,15 @@ def _get_header(headers: dict, name: str) -> str:
         if key.lower() == lower_name:
             return value
     return ""
+
+
+def _interaction_response(payload: dict) -> dict:
+    """Wrap a Discord interaction payload for API Gateway."""
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(payload),
+    }
 
 
 def lambda_handler(event, context):
@@ -52,26 +71,17 @@ def lambda_handler(event, context):
         }
 
     # --- Step 4: Route real slash commands to their handler ---
-    # TODO: dispatch to command_lambda/command/accolade.py, leaderboard.py,
-    # or credits.py based on the command name in the interaction payload.
-    # For now, a minimal "hello world" /ping command proves the full round
-    # trip (Discord <-> API Gateway <-> Lambda <-> signature verification)
-    # works before any real command logic is wired in.
     if interaction.get("type") == 2:
         command_name = interaction.get("data", {}).get("name")
         if command_name == "ping":
-            return {
-                "statusCode": 200,
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps(
-                    {"type": 4, "data": {"content": "pong! \U0001f3d3"}}
-                ),
-            }
+            return _interaction_response(
+                {"type": 4, "data": {"content": "pong! \U0001f3d3"}}
+            )
 
-    return {
-        "statusCode": 200,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(
-            {"type": 4, "data": {"content": "Unknown command."}}
-        ),
-    }
+        command_handler = COMMAND_HANDLERS.get(command_name)
+        if command_handler:
+            return _interaction_response(command_handler(interaction))
+
+    return _interaction_response(
+        {"type": 4, "data": {"content": "Unknown command."}}
+    )

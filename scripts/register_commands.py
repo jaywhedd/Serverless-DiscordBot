@@ -31,14 +31,58 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
 
-# The commands to register. Add more dicts here as new slash commands are
-# built (accolade, credits, leaderboard, etc.) -- for now, just the
-# hello-world /ping health check.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from rankerbot.common.config import ACCOLADE_CATEGORIES
+
+# The guild-scoped commands exposed by the Command Lambda.
 COMMANDS = [
     {
         "name": "ping",
         "description": "Health check -- replies with pong if the bot is alive.",
         "type": 1,  # CHAT_INPUT (slash command)
+    },
+    {
+        "name": "accolade",
+        "description": "Award today's available accolade to a user.",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "The user receiving the accolade.",
+                "type": 6,  # USER
+                "required": True,
+            },
+            {
+                "name": "category",
+                "description": "The accolade category to award.",
+                "type": 3,  # STRING
+                "required": True,
+                "choices": [
+                    {"name": category, "value": category}
+                    for category in ACCOLADE_CATEGORIES
+                ],
+            },
+        ],
+    },
+    {
+        "name": "credits",
+        "description": "Show a user's current weekly credits.",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "The user to check; defaults to you.",
+                "type": 6,  # USER
+                "required": False,
+            }
+        ],
+    },
+    {
+        "name": "leaderboard",
+        "description": "Show the current weekly credits leaderboard.",
+        "type": 1,
     },
 ]
 
