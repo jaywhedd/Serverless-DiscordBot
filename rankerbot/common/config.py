@@ -34,7 +34,7 @@ TOP_N_RANKS = 3
 # before we reject it as stale, to guard against replay attacks. Discord
 # signs every request with the current time; this is a defense-in-depth
 # check alongside signature verification (see verify.is_timestamp_fresh).
-MAX_REQUEST_AGE_SECONDS = 10
+MAX_REQUEST_AGE_SECONDS = 300
 
 # SSM Parameter Store *paths* (not secret values -- safe to commit) used by
 # common/ssm.py to fetch the actual Discord public key / bot token at
@@ -43,10 +43,10 @@ DISCORD_PUBLIC_KEY_PARAM = "/rankerbot/discord_public_key"
 DISCORD_BOT_TOKEN_PARAM = "/rankerbot/discord_bot_token"
 
 # TODO: Set hardcoded #leaderboard channel ID
-LEADERBOARD_CHANNEL_ID = ""
+LEADERBOARD_CHANNEL_ID = "1548975446815809686"
 
 # TODO: Set the test server (guild) ID
-GUILD_ID = ""
+GUILD_ID = "1546499797274337330"
 
 # TODO: Set the rank role IDs (#1, #2, #3), ordered best to worst
-RANK_ROLE_IDS = []
+RANK_ROLE_IDS = ["1548976608105340928", "1548976968165363753", "1548977262475612190"]

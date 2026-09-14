@@ -121,15 +121,57 @@ def query_top_users_by_weekly_credits(guild_id: str, limit: int) -> list:
     return response.get("Items", [])
 
 
-def reset_weekly_credits(user_id: str) -> None:
-    """Reset a user's weekly credits after the leaderboard is finalized."""
+def query_all_guild_users(guild_id: str) -> list:
+    """Return every guild user from the credits GSI, handling pagination."""
     table = get_table()
-    table.update_item(
-        Key={"user_id": user_id},
-        UpdateExpression="SET #weekly_credits = :zero",
-        ExpressionAttributeNames={"#weekly_credits": "weekly_credits"},
-        ExpressionAttributeValues={":zero": 0},
-    )
+    query_args = {
+        "IndexName": WEEKLY_CREDITS_GSI_NAME,
+        "KeyConditionExpression": Key("guild_id").eq(guild_id),
+        "ScanIndexForward": False,
+    }
+    users = []
+
+    while True:
+        response = table.query(**query_args)
+        users.extend(response.get("Items", []))
+        last_key = response.get("LastEvaluatedKey")
+        if not last_key:
+            return users
+        query_args["ExclusiveStartKey"] = last_key
+
+
+def reset_weekly_credits(user_id: str, credits_to_reset: int, week_id: str) -> bool:
+    """Subtract a week's snapshot once while preserving newly awarded points."""
+    if credits_to_reset <= 0:
+        return False
+
+    table = get_table()
+    try:
+        table.update_item(
+            Key={"user_id": user_id},
+            UpdateExpression=(
+                "SET #last_reset_week = :week_id "
+                "ADD #weekly_credits :credits"
+            ),
+            ConditionExpression=(
+                "attribute_not_exists(#last_reset_week) "
+                "OR #last_reset_week <> :week_id"
+            ),
+            ExpressionAttributeNames={
+                "#weekly_credits": "weekly_credits",
+                "#last_reset_week": "last_reset_week",
+            },
+            ExpressionAttributeValues={
+                ":credits": -credits_to_reset,
+                ":week_id": week_id,
+            },
+        )
+        return True
+    except ClientError as error:
+        error_code = error.response.get("Error", {}).get("Code")
+        if error_code == "ConditionalCheckFailedException":
+            return False
+        raise
 
 
 def set_current_rank_role(user_id: str, role_id: str) -> None:
@@ -141,4 +183,55 @@ def set_current_rank_role(user_id: str, role_id: str) -> None:
         UpdateExpression="SET #current_rank_role = :role_id",
         ExpressionAttributeNames={"#current_rank_role": "current_rank_role"},
         ExpressionAttributeValues={":role_id": role_id},
+    )
+
+
+def clear_current_rank_role(user_id: str) -> None:
+    """Clear tracked role state after Discord confirms the old role removal."""
+    get_table().update_item(
+        Key={"user_id": user_id},
+        UpdateExpression="REMOVE #current_rank_role",
+        ExpressionAttributeNames={"#current_rank_role": "current_rank_role"},
+    )
+
+
+def get_or_create_finalization(
+    guild_id: str,
+    week_id: str,
+    users: list,
+    ranked_users: list,
+) -> dict:
+    """Create an immutable weekly standings snapshot, or return an existing one."""
+    table = get_table()
+    key = {"user_id": f"FINALIZATION#{guild_id}#{week_id}"}
+    item = {
+        **key,
+        "record_type": "weekly_finalization",
+        "finalization_guild_id": guild_id,
+        "week_id": week_id,
+        "status": "prepared",
+        "users": users,
+        "ranked_users": ranked_users,
+    }
+    try:
+        table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(#user_id)",
+            ExpressionAttributeNames={"#user_id": "user_id"},
+        )
+        return item
+    except ClientError as error:
+        error_code = error.response.get("Error", {}).get("Code")
+        if error_code != "ConditionalCheckFailedException":
+            raise
+        return table.get_item(Key=key, ConsistentRead=True)["Item"]
+
+
+def set_finalization_status(guild_id: str, week_id: str, status: str) -> None:
+    """Advance the checkpoint used to safely resume a retried weekly job."""
+    get_table().update_item(
+        Key={"user_id": f"FINALIZATION#{guild_id}#{week_id}"},
+        UpdateExpression="SET #status = :status",
+        ExpressionAttributeNames={"#status": "status"},
+        ExpressionAttributeValues={":status": status},
     )

@@ -10,6 +10,7 @@ import boto3
 from rankerbot.common.config import DISCORD_BOT_TOKEN_PARAM, DISCORD_PUBLIC_KEY_PARAM
 
 _ssm_client = None
+_parameter_cache = {}
 
 
 def _get_client():
@@ -21,9 +22,15 @@ def _get_client():
 
 
 def get_parameter(name: str, with_decryption: bool = True) -> str:
-    """Fetch a single SecureString/String parameter from SSM Parameter Store."""
+    """Fetch and cache a SecureString/String parameter across warm invocations."""
+    cache_key = (name, with_decryption)
+    if cache_key in _parameter_cache:
+        return _parameter_cache[cache_key]
+
     response = _get_client().get_parameter(Name=name, WithDecryption=with_decryption)
-    return response["Parameter"]["Value"]
+    value = response["Parameter"]["Value"]
+    _parameter_cache[cache_key] = value
+    return value
 
 
 def get_discord_bot_token() -> str:
