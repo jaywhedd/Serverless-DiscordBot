@@ -1,10 +1,9 @@
 """
 One-off local script to register the bot's slash commands with Discord.
 
-Registers commands against a single test GUILD (not globally), because
-guild-scoped commands propagate near-instantly, whereas global commands can
-take up to an hour to show up. This is the right choice while testing --
-switch to the global commands endpoint later for production.
+Registers commands against a single test guild by default. Pass
+``--scope global`` for production registration across every server where the
+application is installed.
 
 SECURITY: This script needs your bot token to authenticate with Discord's
 REST API. The token is NEVER hardcoded here and NEVER committed. It is read
@@ -14,12 +13,14 @@ interactive prompt. The .env file is ignored by Git.
 Usage:
     1. Fill in the three values in the repository-root .env file.
     2. Run: python scripts/register_commands.py
+       Production: python scripts/register_commands.py --scope global
 
 Values already present in the process environment take precedence over .env.
 If any value is still missing, the script prompts for it interactively (the
 token prompt hides input).
 """
 
+import argparse
 import getpass
 import os
 import sys
@@ -132,17 +133,35 @@ def _get_required(env_var: str, prompt: str, secret: bool = False) -> str:
     return value
 
 
-def register_guild_commands(application_id: str, guild_id: str, bot_token: str) -> None:
-    """PUT the full command list to Discord for a single guild. This is a
-    bulk overwrite -- it replaces all of the guild's existing commands with
-    exactly the list provided, which is Discord's documented way to do it."""
-    url = f"{DISCORD_API_BASE}/applications/{application_id}/guilds/{guild_id}/commands"
+def register_commands(
+    application_id: str,
+    bot_token: str,
+    scope: str = "guild",
+    guild_id: str | None = None,
+) -> None:
+    """Bulk overwrite Discord commands for a guild or for the application."""
+    if scope == "guild":
+        if not guild_id:
+            raise ValueError("guild_id is required for guild command registration")
+        url = (
+            f"{DISCORD_API_BASE}/applications/{application_id}"
+            f"/guilds/{guild_id}/commands"
+        )
+    elif scope == "global":
+        url = f"{DISCORD_API_BASE}/applications/{application_id}/commands"
+    else:
+        raise ValueError(f"Unsupported command scope: {scope}")
+
     headers = {
         "Authorization": f"Bot {bot_token}",
         "Content-Type": "application/json",
     }
 
-    response = requests.put(url, headers=headers, json=COMMANDS, timeout=10)
+    try:
+        response = requests.put(url, headers=headers, json=COMMANDS, timeout=10)
+    except requests.RequestException as error:
+        print(f"FAILED to contact Discord: {error}", file=sys.stderr)
+        sys.exit(1)
 
     if response.status_code in (200, 201):
         registered = [cmd.get("name") for cmd in response.json()]
@@ -154,13 +173,24 @@ def register_guild_commands(application_id: str, guild_id: str, bot_token: str) 
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Register RankerBot slash commands.")
+    parser.add_argument(
+        "--scope",
+        choices=("guild", "global"),
+        default="guild",
+        help="Register immediately in one guild (default) or globally for production.",
+    )
+    args = parser.parse_args()
+
     _load_env_file()
 
     application_id = _get_required("DISCORD_APPLICATION_ID", "Discord Application ID")
-    guild_id = _get_required("DISCORD_GUILD_ID", "Discord Test Guild (Server) ID")
     bot_token = _get_required("DISCORD_BOT_TOKEN", "Discord Bot Token", secret=True)
+    guild_id = None
+    if args.scope == "guild":
+        guild_id = _get_required("DISCORD_GUILD_ID", "Discord Test Guild (Server) ID")
 
-    register_guild_commands(application_id, guild_id, bot_token)
+    register_commands(application_id, bot_token, args.scope, guild_id)
 
 
 if __name__ == "__main__":
