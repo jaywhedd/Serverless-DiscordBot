@@ -39,11 +39,6 @@ from rankerbot.common.config import ACCOLADE_CATEGORIES
 # The guild-scoped commands exposed by the Command Lambda.
 COMMANDS = [
     {
-        "name": "ping",
-        "description": "Health check -- replies with pong if the bot is alive.",
-        "type": 1,  # CHAT_INPUT (slash command)
-    },
-    {
         "name": "accolade",
         "description": "Award today's available accolade to a user.",
         "type": 1,

@@ -73,11 +73,6 @@ def lambda_handler(event, context):
     # --- Step 4: Route real slash commands to their handler ---
     if interaction.get("type") == 2:
         command_name = interaction.get("data", {}).get("name")
-        if command_name == "ping":
-            return _interaction_response(
-                {"type": 4, "data": {"content": "pong! \U0001f3d3"}}
-            )
-
         command_handler = COMMAND_HANDLERS.get(command_name)
         if command_handler:
             return _interaction_response(command_handler(interaction))
